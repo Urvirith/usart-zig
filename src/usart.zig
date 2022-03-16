@@ -1,0 +1,209 @@
+const std = @import("std");
+const builtin = @import("builtin");
+
+// Description Found Here
+// https://www.cmrr.umn.edu/~strupp/serial.html
+
+const CBAUD = 0o000000010017;
+const CS5 = 0o0000000;
+const CS6 = 0o0000020;
+const CS7 = 0o0000040;
+const CS8 = 0o0000060;
+const CLOCAL = 0o0004000;
+const CRTSCTS = 0o020000000000;
+const CSTOPB = 0o0000100;
+const CREAD = 0o0000200;
+const CMSPAR = 0o010000000000;
+const INPCK = 0o0000020;
+const IXON = 0o0002000;
+const IXANY = 0o0004000;
+const IXOFF = 0o0010000;
+const PARENB = 0o0000400;
+const PARODD = 0o0001000;
+const VTIME = 5;
+const VMIN = 6;
+const VSWTC = 7;
+const VSTART = 8;
+const VSTOP = 9;
+
+const TCIFLUSH = 0;
+const TCOFLUSH = 1;
+const TCIOFLUSH = 2;
+const TCFLSH = 0x540B;
+
+// Parity Not In STM32 Manuall
+pub const Parity = enum {
+    none,       // No Parity
+    even,       // Parity On Even Words
+    odd,        // Parity On Odd Words
+    mark,       // Parity Always On
+    space,      // Parity Always Off
+};
+
+// Stop Bit Options On STM32
+pub const StopBits = enum {
+    one,        // 1 Stop Bit
+    two,        // 2 Stop Bits
+};
+
+// Flow Control Options On STM32
+pub const FlowControl = enum {
+    none,       // No Flow Control
+    software,   // Software Flow Control
+    hardware,   // Hardware Flow Control
+};
+
+pub const WordLength = enum {
+    five,
+    six,
+    seven,
+    eight,
+};
+
+// Standard STM32 Baud Rates Supported By Linux
+pub const BaudRate = enum(u32) {
+    baud1200    = 1200,
+    baud1800    = 1800,
+    baud2400    = 2400,
+    baud4800    = 4800,
+    baud9600    = 9600,
+    baud19200   = 19200,
+    baud38400   = 38400,
+    baud57600   = 57600,
+    baud115200  = 115200,
+    baud230400  = 230400,
+    baud460800  = 460800,
+    baud576000  = 576000,
+    baud921600  = 921600,
+};
+
+pub const SerialPort = struct {
+    baud_rate:      BaudRate    = .baud9600,
+    parity:         Parity      = .none,
+    stop_bits:      StopBits    = .one,
+    word_length:    WordLength  = .eight,
+    flowcontrol:    FlowControl = .none,
+
+    // Functions
+    // Init the structure
+    pub fn init(baud_rate: BaudRate, parity: Parity, stop_bits: StopBits, word_length: WordLength, flowcontrol: FlowControl) SerialPort {
+        return SerialPort {
+            .baud_rate =    baud_rate,
+            .parity =       parity,
+            .stop_bits =    stop_bits,
+            .word_length =  word_length,
+            .flowcontrol =  flowcontrol,  
+        };
+    }
+
+    // Configure the port on Linux
+    pub fn configure(self: *SerialPort, port: std.fs.File) !void {
+        switch(builtin.os.tag) {
+            .linux => {
+                var settings = try std.os.tcgetattr(port.handle);
+                
+                settings.iflag = 0;
+                settings.oflag = 0;
+                settings.cflag = CREAD;
+                settings.lflag = 0;
+                settings.ispeed = 0;
+                settings.ospeed = 0;
+
+                switch (self.parity) {
+                    .none   => {},
+                    .odd    => settings.cflag |= PARODD,
+                    .even   => {},
+                    .mark   => settings.cflag |= PARODD | CMSPAR,
+                    .space  => settings.cflag |= CMSPAR,
+                }
+
+                if (self.parity != .none) {
+                    settings.oflag |= INPCK;
+                    settings.cflag |= PARENB;
+                }
+
+                switch (self.flowcontrol) {
+                    .none       => settings.cflag |= CLOCAL,
+                    .software   => settings.iflag |= IXON | IXOFF,
+                    .hardware   => settings.cflag |= CRTSCTS,
+                }
+
+                switch (self.stop_bits) {
+                    .one => {},
+                    .two => settings.cflag |= CSTOPB,
+                }
+
+                switch (self.word_length) {
+                    .five   => settings.cflag |= CS5,
+                    .six    => settings.cflag |= CS6,
+                    .seven  => settings.cflag |= CS7,
+                    .eight  => settings.cflag |= CS8,
+                }
+
+                const baudmask = baudToLinux(self.baud_rate);
+                settings.cflag &= ~@as(u32, CBAUD);
+                settings.cflag |= baudmask;
+                settings.ispeed = baudmask;
+                settings.ospeed = baudmask;
+
+                settings.cc[VMIN] = 1;
+                settings.cc[VSTOP] = 0x13; // XOFF
+                settings.cc[VSTART] = 0x11; // XON
+                settings.cc[VTIME] = 0;
+
+                try std.os.tcsetattr(port.handle, .NOW, settings);
+
+
+            }, 
+            else => {
+                @compileError("Unsupported OS");
+            }
+        }
+    }
+};
+
+/// Flushes the serial port `port`. If `input` is set, all pending data in
+/// the receive buffer is flushed, if `output` is set all pending data in
+/// the send buffer is flushed.
+pub fn flushSerialPort(port: std.fs.File, input: bool, output: bool) !void {
+    switch (builtin.os.tag) {
+        .linux => {
+            if (input and output) {
+                try tcflush(port.handle, TCIOFLUSH);
+            }
+            else if (input) {
+                try tcflush(port.handle, TCIFLUSH);
+            }
+            else if (output) {
+                try tcflush(port.handle, TCOFLUSH);
+            }
+        },
+        else => {
+            @compileError("unsupported OS, please implement!");
+        }
+    }
+}
+
+fn tcflush(fd: std.os.fd_t, mode: usize) !void {
+    if (std.os.linux.syscall3(.ioctl, @bitCast(usize, @as(isize, fd)), TCFLSH, mode) != 0)
+        return error.FlushError;
+}
+
+// Verify Baud Rate
+fn baudToLinux(baud: BaudRate) u32 {
+    return switch (baud) {
+        .baud1200   => std.os.linux.B1200,
+        .baud1800   => std.os.linux.B1800,
+        .baud2400   => std.os.linux.B2400,
+        .baud4800   => std.os.linux.B4800,
+        .baud9600   => std.os.linux.B9600,
+        .baud19200  => std.os.linux.B19200,
+        .baud38400  => std.os.linux.B38400,
+        .baud57600  => std.os.linux.B57600,
+        .baud115200 => std.os.linux.B115200,
+        .baud230400 => std.os.linux.B230400,
+        .baud460800 => std.os.linux.B460800,
+        .baud576000 => std.os.linux.B576000,
+        .baud921600 => std.os.linux.B921600,
+    };
+}
