@@ -23,7 +23,15 @@ pub fn main() anyerror!u8 {
 
     try config.configure(serial);
 
-    try serial.writer().writeAll("Hello, World!\r\n");
+    var i: u32 = 0;
+    
+    while (i < 10) {
+        try serial.writer().writeAll("Hello, World!\r\n");
+
+        std.time.sleep(1000000000);
+        i+=1;
+    }
+
     return 0;
 }
 
