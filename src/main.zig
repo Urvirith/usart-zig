@@ -30,7 +30,7 @@ pub fn main() anyerror!u8 {
         //try serial.writer().writeAll("Hello, World!\r\n");
 
         //std.time.sleep(1000000000);
-        var dog = try serial.reader().readUntilDelimiter(&buffer, 0x0D);
+        var dog = try serial.reader().readUntilDelimiter(&buffer, 0xFF);
 
         try std.io.getStdOut().writer().print("Data: {d}\n", .{dog});
         //i+=1;
