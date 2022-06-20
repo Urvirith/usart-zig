@@ -4,32 +4,32 @@ const builtin = @import("builtin");
 // Description Found Here
 // https://www.cmrr.umn.edu/~strupp/serial.html
 
-const CBAUD = 0o000000010017;
-const CS5 = 0o0000000;
-const CS6 = 0o0000020;
-const CS7 = 0o0000040;
-const CS8 = 0o0000060;
-const CLOCAL = 0o0004000;
-const CRTSCTS = 0o020000000000;
-const CSTOPB = 0o0000100;
-const CREAD = 0o0000200;
-const CMSPAR = 0o010000000000;
-const INPCK = 0o0000020;
-const IXON = 0o0002000;
-const IXANY = 0o0004000;
-const IXOFF = 0o0010000;
-const PARENB = 0o0000400;
-const PARODD = 0o0001000;
-const VTIME = 5;
-const VMIN = 6;
-const VSWTC = 7;
-const VSTART = 8;
-const VSTOP = 9;
+const CBAUD     = 0x0000100F;
+const CS5       = 0x00000000;
+const CS6       = 0x00000010;
+const CS7       = 0x00000020;
+const CS8       = 0x00000030;
+const CLOCAL    = 0x00000800;
+const CRTSCTS   = 0x80000000;
+const CSTOPB    = 0x00000040;
+const CREAD     = 0x00000080;
+const CMSPAR    = 0x40000000;
+const INPCK     = 0x00000010;
+const IXON      = 0x00000400;
+const IXANY     = 0x00000800;
+const IXOFF     = 0x00001000;
+const PARENB    = 0x00000100;
+const PARODD    = 0x00000200;
+const VTIME     = 0x00000005;
+const VMIN      = 0x00000006;
+const VSWTC     = 0x00000007;
+const VSTART    = 0x00000008;
+const VSTOP     = 0x00000009;
 
-const TCIFLUSH = 0;
-const TCOFLUSH = 1;
-const TCIOFLUSH = 2;
-const TCFLSH = 0x540B;
+const TCIFLUSH  = 0x00000000;
+const TCOFLUSH  = 0x00000001;
+const TCIOFLUSH = 0x00000002;
+const TCFLSH    = 0x0000540B;
 
 // Parity Not In STM32 Manuall
 pub const Parity = enum {
@@ -62,19 +62,19 @@ pub const WordLength = enum {
 
 // Standard STM32 Baud Rates Supported By Linux
 pub const BaudRate = enum(u32) {
-    baud1200    = 1200,
-    baud1800    = 1800,
-    baud2400    = 2400,
-    baud4800    = 4800,
-    baud9600    = 9600,
-    baud19200   = 19200,
-    baud38400   = 38400,
-    baud57600   = 57600,
-    baud115200  = 115200,
-    baud230400  = 230400,
-    baud460800  = 460800,
-    baud576000  = 576000,
-    baud921600  = 921600,
+    baud1200    = 0x000004B0,
+    baud1800    = 0x00000708,
+    baud2400    = 0x00000960,
+    baud4800    = 0x000012C0,
+    baud9600    = 0x00002580,
+    baud19200   = 0x00004B00,
+    baud38400   = 0x00009600,
+    baud57600   = 0x0000E100,
+    baud115200  = 0x0001C200,
+    baud230400  = 0x00038400,
+    baud460800  = 0x00070800,
+    baud576000  = 0x0008CA00,
+    baud921600  = 0x000E1000,
 };
 
 pub const SerialPort = struct {
