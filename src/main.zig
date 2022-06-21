@@ -1,14 +1,22 @@
 const std = @import("std");
 const usart = @import("usart.zig");
 
+// Main Call 
 pub fn main() anyerror!u8 {    
+    try loop();
+    
+    return 0;
+}
+
+fn loop() !void {
     const port_name = "/dev/ttyUSB0";
     var buffer: [1024]u8 = undefined;
+    var bufferusb: [1024]u8 = undefined;
 
     var dev = std.fs.cwd().openFile(port_name, .{ .read = true, .write = true }) catch |err| switch (err) {
         error.FileNotFound => {
             try std.io.getStdOut().writer().print("The serial port {s} does not exist.\n", .{port_name});
-            return 1;
+            return;
         },
         else => return err,
     };
@@ -25,13 +33,48 @@ pub fn main() anyerror!u8 {
     try config.configure(dev);
     
     while (true) {
-        try dev.writer().writeAll("Hello, World!\n");
+        // Read the USB or Keyboard input
+        try std.io.getStdOut().writer().writeAll("Please Enter A Value: ");
+        
+        // Trims Out The Delimiter
+        var usbslice = try std.io.getStdIn().reader().readUntilDelimiter(&bufferusb, '\n');
+        // Remove The Horizonal Tab Character: \t to get scanned valuable info
+        var usblen = usbslice.len - 1;
+        // Reform the slice from the buffer with the carrage return
 
-        std.time.sleep(1000000000);
-        var len = try dev.reader().readUntilDelimiter(&buffer, '\n');
+        if ((usblen > 0) and ((usblen + 2) < bufferusb.len)) {
+            var usbin = bufferusb[0..usbslice.len + 1];
+            // Add A Carrage Return To Pad For The Scan
+            //usbin[usblen] = '\n';
 
-        try std.io.getStdOut().writer().print("Data: {s}\n", .{len});
+            // Serial Write On All Data Recieved
+            switch(usblen) {
+                5 => { // Trace Code
+                    try std.io.getStdOut().writer().print("Trace Code: {s}", .{usbin});
+                    try dev.writer().writeAll(usbin);
+                },
+                6 => { // Shop Order
+                    try std.io.getStdOut().writer().print("Shop Order: {s}", .{usbin});
+                    try dev.writer().writeAll(usbin);
+                    try shoporder();
+                },
+                8 => { // Catalogue Number
+                    try std.io.getStdOut().writer().print("Catalogue Number: {s}", .{usbin});
+                    try dev.writer().writeAll(usbin);
+                },
+                else => {
+                    try std.io.getStdOut().writer().writeAll("Unknown Data, no action taken. \n");
+                }
+            }
+
+            // Serial Reflection
+            var serial = try dev.reader().readUntilDelimiter(&buffer, '\n');
+            try std.io.getStdOut().writer().print("Data: {s}\n", .{serial});
+        }
     }
+}
 
-    return 0;
+// Handle the shop order information
+fn shoporder() !void {
+    try std.io.getStdOut().writer().writeAll("Shop Order Found. \n");
 }
