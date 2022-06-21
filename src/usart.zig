@@ -97,7 +97,7 @@ pub const SerialPort = struct {
     }
 
     // Configure the port on Linux
-    pub fn configure(self: *SerialPort, port: std.fs.File) !void {
+    pub fn open(self: *SerialPort, port: std.fs.File) !void {
         switch(builtin.os.tag) {
             .linux => {
                 var settings = try std.os.tcgetattr(port.handle);

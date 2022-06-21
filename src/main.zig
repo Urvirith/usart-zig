@@ -10,7 +10,7 @@ pub fn main() anyerror!u8 {
 
 fn loop() !void {
     const port_name = "/dev/ttyUSB0";
-    var buffer: [1024]u8 = undefined;
+    //var buffer: [1024]u8 = undefined;
     var bufferusb: [1024]u8 = undefined;
 
     var dev = std.fs.cwd().openFile(port_name, .{ .read = true, .write = true }) catch |err| switch (err) {
@@ -30,7 +30,7 @@ fn loop() !void {
         usart.FlowControl.none
     );
 
-    try config.configure(dev);
+    try config.open(dev);
     
     while (true) {
         // Read the USB or Keyboard input
@@ -62,14 +62,11 @@ fn loop() !void {
                     try std.io.getStdOut().writer().print("Catalogue Number: {s}", .{usbin});
                     try dev.writer().writeAll(usbin);
                 },
-                else => {
-                    try std.io.getStdOut().writer().writeAll("Unknown Data, no action taken. \n");
+                else => { // Assume Catalogue Number
+                    try std.io.getStdOut().writer().print("Assumed Catalogue Number: {s}", .{usbin});
+                    try dev.writer().writeAll(usbin);
                 }
             }
-
-            // Serial Reflection
-            var serial = try dev.reader().readUntilDelimiter(&buffer, '\n');
-            try std.io.getStdOut().writer().print("Data: {s}\n", .{serial});
         }
     }
 }
